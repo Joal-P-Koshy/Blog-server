@@ -162,7 +162,30 @@ const editUser = async(req, res, next) => {
             return next(new HttpError('User not found.', 403))
         }
 
-        // new email doesn't 
+        // new email doesn't already exists
+        const emailExist = await User.findOne({email});
+        if(emailExist && (emailExist._id != req.user.id)) {
+            return next(new HttpError('Email already exist.',422))
+        }
+
+        // compare current pass with db pass
+        const validateUserPassword = await bcrypt.compare(currentPassword, user.password);
+        if( !validateUserPassword ) {
+            return next(new HttpError('Invalid current password', 422))
+        }
+
+        // compare new passwords
+        if(newPassword !== confirmNewPassword) {
+            return next(new HttpError('New passwords do not match', 422))
+        }
+
+        // hash new password
+        const salt = await bcrypt.genSalt(10)
+        const hash = await bcrypt.hash(newPassword, salt);
+
+        // update user info in db
+        const newInfo = await User.findByIdAndUpdate(req.user.id, { name, email, password: hash }, { new: true })
+        res.status(200).json(newInfo)
 
     } catch (error) {
         return next(new HttpError(error))
