@@ -2,7 +2,9 @@ const bcrypt = require('bcryptjs')
 const User = require('../Models/userModel')
 const HttpError = require('../Models/errorModel')
 const jwt = require('jsonwebtoken')
-
+const fs = require('fs')
+const path = require('path')
+const { v4: uuid } = require('uuid')
 
 
 
@@ -79,8 +81,17 @@ const loginUser = async(req, res, next) => {
 
 
 // user profile
-const getUser = async(req, res) => {
-    res.json(' User profile ')
+const getUser = async(req, res, next) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id).select('-password');
+        if( !user ) {
+            return next(new HttpError('User not found.', 404))
+        }
+        res.status(200).json(user);
+    } catch (error) {
+        return next(new HttpError(error))
+    }
 }
 
 
@@ -88,8 +99,48 @@ const getUser = async(req, res) => {
 
 
 // change user avatar( profile pic )
-const changeAvatar = async(req, res) => {
-    res.json('change user avatar')
+const changeAvatar = async(req, res, next) => {
+   try {
+    if( !req.files.avatar ) {
+        return next(new HttpError('Please select an image.', 422))
+    }
+
+    // find user from db
+    const user = await User.findById(req.user.id)
+
+    // delete old avatar if exists
+    if(user.avatar) {
+        fs.unlink(path.join(__dirname, '..', 'uploads', user.avatar), (err) => {
+            if(err) {
+                return next(new HttpError(err))
+            }
+        })
+    }
+
+    const {avatar} = req.files;
+
+    // file size
+    if(avatar.size > 500000) {
+        return next (new HttpError('File size too big. Should be less than 500kb', 422))
+    }
+
+    let fileName = avatar.name;
+    let splittedFileName = fileName.split('.')
+    let newFilename = splittedFileName[0] + uuid() + '.' + splittedFileName[ splittedFileName.length - 1 ]
+    avatar.mv(path.join(__dirname, '..', 'uploads', newFilename), async(err) => {
+        if (err) {
+            return next(new HttpError(err))
+        }
+        const updatedAvatar = await User.findByIdAndUpdate(req.user.id, {avatar: newFilename}, {new: true})
+        if(!updatedAvatar) {
+            return next(new HttpError('Avatar could not be changed.', 422))
+        }
+        res.status(200).json(updatedAvatar)
+    })
+
+   } catch (error) {
+    return next(new HttpError(error))
+   }
 }
 
 
@@ -98,8 +149,24 @@ const changeAvatar = async(req, res) => {
 
 
 // edit user details (from profile)
-const editUser = async(req, res) => {
-    res.json('edit User details')
+const editUser = async(req, res, next) => {
+    try {
+        const {name, email, currentPassword, newPassword, confirmNewPassword} = req.body;
+        if( !name || !email || !currentPassword || !newPassword ) {
+            return next(new HttpError('Please fill the form completely', 422))
+        }
+
+        // get user from db
+        const user = await User.findById(req.user.id);
+        if(!user) {
+            return next(new HttpError('User not found.', 403))
+        }
+
+        // new email doesn't 
+
+    } catch (error) {
+        return next(new HttpError(error))
+    }
 }
 
 
@@ -108,8 +175,13 @@ const editUser = async(req, res) => {
 
 
 // get authors details (from profile)
-const getAuthors = async(req, res) => {
-    res.json('get all User/ authors')
+const getAuthors = async(req, res, next) => {
+    try {
+        const autors = await User.find().select('-password');
+        res.json(autors);
+    } catch (error) {
+        return next(new HttpError(error))
+    }
 }
 
 
