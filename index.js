@@ -24,4 +24,4 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = 5000;
-app.listen(PORT, () => console.log(`server running successfully at port : ${PORT}`));
+app.listen(PORT || 5000, () => console.log(`server running successfully at port : ${PORT}`));
